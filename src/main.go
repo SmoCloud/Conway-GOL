@@ -268,11 +268,11 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 
 // this function will create the game board grid
 func makeCells() [][]*cell {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano())) // rand.Seed(seed) has been depreciated, this is the new method for seeding the random number generator
 
 	cells := make([][]*cell, rows, cols)
-	for x := 0; x < rows; x++ {
-		for y := 0; y < cols; y++ {
+	for x := range rows {
+		for y := range cols {
 			c := newCell(x, y)
 
 			c.alive = rand.Float64() < threshold
@@ -289,7 +289,7 @@ func newCell(x, y int) *cell {
 	points := make([]float32, len(square))
 	copy(points, square)
 
-	for i := 0; i < len(points); i++ {
+	for i := range points {
 		var position, size float32
 		switch i % 3 {
 		case 0:
