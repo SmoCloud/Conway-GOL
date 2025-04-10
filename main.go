@@ -6,7 +6,7 @@
    I'm really enjoying Go.
 */
 
-package Conway_GOL
+package main
 
 import (
 	"fmt"
@@ -15,8 +15,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"sync"
 
-	"github.com/SmoCloud/Conway-GOL/bin"
+	gcells "github.com/SmoCloud/Conway-GOL/gol_cells"
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
 )
@@ -30,18 +31,26 @@ func main() {
 	program := initOpenGL()
 
 	cells := makeCells()
+	wg := new(sync.WaitGroup)
+	checkCellState := func(x int, wg *sync.WaitGroup) {
+		defer wg.Done()
+		for _, c := range cells[x] {
+			wg.Add(1)
+			go c.CheckState(cells)
+			wg.Done()
+		}
+	}
 	for !window.ShouldClose() {
 		t := time.Now()
-
+		// Could parallelize the CheckState call, may use waitGroups for this since no data need be sent back to main
 		for x := range cells {
-			for _, c := range cells[x] {
-				c.checkState(cells)
-			}
+			wg.Add(1)
+			go checkCellState(x, wg)
 		}
-
+		wg.Wait()
 		draw(cells, window, program)
 
-		time.Sleep(time.Second/time.Duration(fps) - time.Since(t))
+		time.Sleep(time.Second / time.Duration(gcells.Fps) - time.Since(t))
 	}
 }
 
@@ -57,11 +66,12 @@ func initGlfw() *glfw.Window {
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
-	window, err := glfw.CreateWindow(width, height, "Conway's Game of Life", nil, nil)
+	window, err := glfw.CreateWindow(gcells.Width, gcells.Height, "Conway's Game of Life", nil, nil)
 	if err != nil {
 		panic(err)
 	}
 	window.MakeContextCurrent()
+	glfw.SwapInterval(glfw.True)
 
 	return window
 }
@@ -74,11 +84,11 @@ func initOpenGL() uint32 {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	log.Println("OpenGL version", version)
 
-	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	vertexShader, err := compileShader(gcells.VertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
 		panic(err)
 	}
-	fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+	fragmentShader, err := compileShader(gcells.FragmentShaderSource, gl.FRAGMENT_SHADER)
 	if err != nil {
 		panic(err)
 	}
@@ -91,13 +101,14 @@ func initOpenGL() uint32 {
 }
 
 // draw clears anything that's on the screen before drawing new objects
-func draw(cells [][]*cell, window *glfw.Window, program uint32) {
+// Cannot parallelize draws as OpenGL requires operations to happen on a single thread
+func draw(cells [][]*gcells.Cell, window *glfw.Window, program uint32) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	gl.UseProgram(program)
 
 	for x := range cells {
 		for _, c := range cells[x] {
-			c.draw()
+			c.Draw()
 		}
 	}
 
@@ -122,6 +133,7 @@ func makeVao(points []float32) uint32 {
 	return vao
 }
 
+// compileShader will send the shader source code to the GPU for compilation on the GPU (shaders handle vertex points of drawn objects as well as their color)
 func compileShader(source string, shaderType uint32) (uint32, error) {
 	shader := gl.CreateShader(shaderType)
 
@@ -146,17 +158,18 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 }
 
 // this function will create the game board grid
-func makeCells() [][]*cell {
+// Can parallelize here (use WaitGroup instead of a channel as there's no need to pass data back to main, it already gets stored in slice reference)
+func makeCells() [][]*gcells.Cell {
 	rand.New(rand.NewSource(time.Now().UnixNano())) // rand.Seed(seed) has been depreciated, this is the new method for seeding the random number generator
-
-	cells := make([][]*cell, rows, cols)
-	for x := range rows {
-		for y := range cols {
+	cells := make([][]*gcells.Cell, gcells.Cols)
+	for x := range gcells.Cols {
+		for y := range gcells.Rows {
+			// go makeCellsHelperHelper(cells, x, y, wg)
 			c := newCell(x, y)
-
-			c.alive = rand.Float64() < threshold
-			c.survives = c.alive
-
+	
+			c.Alive = rand.Float64() < gcells.Threshold
+			c.Survives = c.Alive
+	
 			cells[x] = append(cells[x], c)
 		}
 	}
@@ -164,18 +177,28 @@ func makeCells() [][]*cell {
 	return cells
 }
 
-func newCell(x, y int) *cell {
-	points := make([]float32, len(square))
-	copy(points, square)
+// func makeCellsHelper(cells [][]*gcells.Cell, x int) {
+	
+// }
+
+// func makeCellsHelperHelper(cells [][]*gcells.Cell, x, y int, wg* sync.WaitGroup) {
+// 	defer wg.Done()
+	
+// }
+
+// This function creates a new cell
+func newCell(x, y int) *gcells.Cell {
+	points := make([]float32, len(gcells.Square))
+	copy(points, gcells.Square)
 
 	for i := range points {
 		var position, size float32
 		switch i % 3 {
 		case 0:
-			size = 1.0 / float32(cols)
+			size = 1.0 / float32(gcells.Cols)
 			position = float32(x) * size
 		case 1:
-			size = 1.0 / float32(rows)
+			size = 1.0 / float32(gcells.Rows)
 			position = float32(y) * size
 		default:
 			continue
@@ -188,10 +211,10 @@ func newCell(x, y int) *cell {
 		}
 	}
 
-	return &cell{
-		drawable: makeVao(points),
+	return &gcells.Cell{
+		Drawable: makeVao(points),
 
-		x: x,
-		y: y,
+		X: x,
+		Y: y,
 	}
 }
