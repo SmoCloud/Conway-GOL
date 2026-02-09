@@ -8,4 +8,4 @@ OpenGL                              :   github.com/go-gl/gl
 GLFW (Graphics Library Framework)   :   github.com/go-gl/glfw
 
 # Install dependencies
-From inside of the directory, run "go mod tidy", which will auto-install all required dependencies listed in the go.mod file
+From inside of the directory, run "go mod tidy" or "go mod download", which will auto-install all required dependencies listed in the go.mod file
