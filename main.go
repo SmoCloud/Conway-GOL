@@ -14,10 +14,10 @@ import (
 	"math/rand"
 	"runtime"
 	"strings"
-	"time"
 	"sync"
+	"time"
 
-	gcells "github.com/SmoCloud/Conway-GOL/gol_cells"
+	"github.com/SmoCloud/Conway-GOL/gol_cells"
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
 )
@@ -50,7 +50,7 @@ func main() {
 		wg.Wait()
 		draw(cells, window, program)
 
-		time.Sleep(time.Second / time.Duration(gcells.Fps) - time.Since(t))
+		time.Sleep(time.Second/time.Duration(gcells.Fps) - time.Since(t))
 	}
 }
 
@@ -166,25 +166,16 @@ func makeCells() [][]*gcells.Cell {
 		for y := range gcells.Rows {
 			// go makeCellsHelperHelper(cells, x, y, wg)
 			c := newCell(x, y)
-	
+
 			c.Alive = rand.Float64() < gcells.Threshold
 			c.Survives = c.Alive
-	
+
 			cells[x] = append(cells[x], c)
 		}
 	}
 
 	return cells
 }
-
-// func makeCellsHelper(cells [][]*gcells.Cell, x int) {
-	
-// }
-
-// func makeCellsHelperHelper(cells [][]*gcells.Cell, x, y int, wg* sync.WaitGroup) {
-// 	defer wg.Done()
-	
-// }
 
 // This function creates a new cell
 func newCell(x, y int) *gcells.Cell {

@@ -35,10 +35,10 @@ var (
 		0.5, 0.5, 0,
 		-0.5, 0.5, 0,
 	}
-	Width  = 500
-	Height = 500
-	Rows   = 100
-	Cols   = 100
+	Width  = 2560
+	Height = 1600
+	Rows   = 200
+	Cols   = 200
 )
 
 // BEGIN - The cell struct and all of its methods start here
